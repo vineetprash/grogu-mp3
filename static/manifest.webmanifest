@@ -3,7 +3,14 @@
   "short_name": "Grogu",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1b2a2f",
-  "theme_color": "#1b2a2f",
-  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+  "background_color": "#f5f2ea",
+  "theme_color": "#f5f2ea",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }

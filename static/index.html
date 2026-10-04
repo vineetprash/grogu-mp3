@@ -4,84 +4,346 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Grogu MP3</title>
+
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon.svg">
-<meta name="theme-color" content="#1b2a2f">
-<style>
-:root{--bg:#1b2a2f;--panel:#f2e8d5;--ink:#1b2a2f;--mute:#6b6556;--line:#c9bfa8;--go:#2f7d6d;--bad:#a8341f;
-  font-family:"Avenir Next","Segoe UI",system-ui,sans-serif}
-*{box-sizing:border-box}
-body{margin:0;min-height:100vh;background:var(--bg);display:grid;place-items:center;padding:20px;color:var(--ink)}
-main{width:min(560px,100%);background:var(--panel);border-radius:22px;padding:28px 26px 24px}
-h1{margin:0 0 4px;font-size:1.6rem;letter-spacing:-.02em}
-p.sub{margin:0 0 22px;color:var(--mute)}
-label{font-weight:600;font-size:.9rem}
-input{width:100%;margin:6px 0 14px;padding:14px;font:inherit;border:2px solid var(--line);border-radius:12px;background:#fffaf0;color:var(--ink)}
-input:focus-visible,button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
-button{width:100%;padding:14px;font:inherit;font-weight:700;border:0;border-radius:12px;background:var(--ink);color:var(--panel);cursor:pointer}
-button:disabled{opacity:.6;cursor:progress}
-.reels{display:none;justify-content:center;gap:18px;margin:18px 0 0}
-.busy .reels{display:flex}
-.reel{width:34px;height:34px;border-radius:50%;border:6px solid var(--ink);border-top-color:transparent;animation:spin 1s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){.reel{animation:none}}
-#status{min-height:1.4em;margin:14px 0 0;font-size:.95rem}
-#status.err{color:var(--bad);font-weight:600}
-ul{list-style:none;margin:18px 0 0;padding:0;border-top:2px solid var(--line)}
-li{padding:10px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;font-size:.92rem}
-li a{color:var(--go);font-weight:600}
-li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#install{margin-top:12px;background:transparent;color:var(--ink);border:2px solid var(--ink);display:none}
-</style>
-</head>
-<body>
-<main id="app">
-  <h1>Grogu MP3</h1>
-  <p class="sub">Paste a YouTube or YouTube Music link. The MP3 is made on this computer.</p>
-  <label for="url">Video or song link</label>
-  <input id="url" type="url" inputmode="url" placeholder="https://music.youtube.com/watch?v=..." autocomplete="off">
-  <button id="go">Convert to MP3</button>
-  <div class="reels" aria-hidden="true"><div class="reel"></div><div class="reel"></div></div>
-  <p id="status" role="status" aria-live="polite"></p>
-  <ul id="done"></ul>
-  <button id="install">Install app</button>
-</main>
-<script>
-const $ = id => document.getElementById(id);
-const app = $("app"), url = $("url"), go = $("go"), status = $("status"), done = $("done");
+<meta name="theme-color" content="#d7ef9b">
 
-async function convert() {
-  const link = url.value.trim();
-  if (!link) { status.className = "err"; status.textContent = "Paste a link first."; return; }
-  go.disabled = true; app.classList.add("busy");
-  status.className = ""; status.textContent = "Downloading and converting. This can take a minute.";
-  try {
-    const res = await fetch("/api/convert", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: link })
-    });
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Conversion failed.");
-    const name = decodeURIComponent(res.headers.get("X-Filename") || "audio.mp3");
-    const href = URL.createObjectURL(await res.blob());
-    const a = Object.assign(document.createElement("a"), { href, download: name });
-    document.body.appendChild(a); a.click(); a.remove();
-    const li = document.createElement("li");
-    li.innerHTML = `<span></span><a download href="${href}">Save again</a>`;
-    li.firstChild.textContent = name;
-    done.prepend(li);
-    status.textContent = "Done. Saved " + name; url.value = "";
-  } catch (e) {
-    status.className = "err"; status.textContent = e.message;
-  } finally {
-    go.disabled = false; app.classList.remove("busy");
+<style>
+:root {
+  --paper: #f3efdf;
+  --card: #fffdf4;
+  --ink: #171916;
+  --green: #b8e85a;
+  --green-dark: #40582b;
+  --pink: #ed3f91;
+  --orange: #f27b32;
+  --blue: #65a5c5;
+  --line: #171916;
+  --danger: #c43b2e;
+  font-family: Inter, "Avenir Next", "Segoe UI", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle, #171916 1.3px, transparent 1.5px);
+  background-size: 18px 18px;
+  background-color: var(--paper);
+  color: var(--ink);
+}
+
+main {
+  position: relative;
+  width: min(480px, 100%);
+  padding: 30px;
+  background: var(--card);
+  border: 3px solid var(--line);
+  box-shadow:
+    8px 8px 0 var(--pink),
+    14px 14px 0 var(--line);
+  overflow: hidden;
+}
+
+/* collage */
+
+.art {
+  position: absolute;
+  width: 105px;
+  height: 105px;
+  overflow: hidden;
+  border: 3px solid var(--line);
+  background: #fff;
+  box-shadow: 5px 5px 0 var(--line);
+  z-index: 0;
+}
+
+.art img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.art-one {
+  top: -24px;
+  right: -20px;
+  transform: rotate(7deg);
+}
+
+.art-two {
+  top: 92px;
+  left: -38px;
+  transform: rotate(-8deg);
+}
+
+header {
+  position: relative;
+  z-index: 2;
+  min-height: 150px;
+  margin-bottom: 20px;
+  padding-left: 20px;
+}
+
+header::before {
+  content: "音";
+  position: absolute;
+  right: 105px;
+  top: 3px;
+  color: var(--pink);
+  font-family: serif;
+  font-size: 3rem;
+  font-weight: 900;
+  transform: rotate(-8deg);
+}
+
+header::after {
+  content: "★";
+  position: absolute;
+  right: 25px;
+  bottom: 5px;
+  color: var(--orange);
+  font-size: 2rem;
+  transform: rotate(12deg);
+}
+
+.title {
+  position: relative;
+  z-index: 3;
+  padding-top: 40px;
+}
+
+h1 {
+  display: inline-block;
+  margin: 0;
+  padding: 5px 9px;
+  background: var(--green);
+  border: 3px solid var(--line);
+  font-family: "Arial Black", Impact, sans-serif;
+  font-size: clamp(2rem, 9vw, 3rem);
+  line-height: .82;
+  letter-spacing: -.07em;
+  text-transform: uppercase;
+  transform: rotate(-2deg);
+  box-shadow: 5px 5px 0 var(--line);
+}
+
+.sub {
+  margin: 16px 0 0 5px;
+  font-size: .7rem;
+  font-weight: 900;
+  letter-spacing: .13em;
+  color: var(--green-dark);
+}
+
+label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+input {
+  width: 100%;
+  height: 50px;
+  padding: 0 14px;
+  border: 3px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font: 600 .95rem system-ui, sans-serif;
+  outline: none;
+  box-shadow: 5px 5px 0 var(--blue);
+}
+
+input::placeholder {
+  color: #888b82;
+}
+
+input:focus {
+  border-color: var(--pink);
+  box-shadow: 5px 5px 0 var(--pink);
+}
+
+button,
+.download {
+  width: 100%;
+  height: 50px;
+  margin-top: 15px;
+  border: 3px solid var(--line);
+  font: 900 .85rem system-ui, sans-serif;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-decoration: none;
+  display: grid;
+  place-items: center;
+}
+
+#go {
+  background: var(--green);
+  color: var(--ink);
+  box-shadow: 5px 5px 0 var(--line);
+}
+
+#go:active {
+  transform: translate(5px, 5px);
+  box-shadow: none;
+}
+
+#go:disabled {
+  opacity: .55;
+  cursor: wait;
+}
+
+#status {
+  min-height: 20px;
+  margin: 13px 0 0;
+  font-size: .8rem;
+  font-weight: 700;
+  color: var(--green-dark);
+}
+
+#status.err {
+  color: var(--danger);
+}
+
+#result {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 3px dashed var(--line);
+}
+
+#filename {
+  display: block;
+  margin-bottom: 11px;
+  padding: 8px 10px;
+  border: 2px solid var(--line);
+  background: var(--green);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: .78rem;
+  font-weight: 800;
+}
+
+audio {
+  width: 100%;
+  height: 42px;
+}
+
+.download {
+  background: var(--pink);
+  color: white;
+  box-shadow: 5px 5px 0 var(--line);
+}
+
+.download:active {
+  transform: translate(5px, 5px);
+  box-shadow: none;
+}
+
+#install {
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 4px 4px 0 var(--blue);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+@media (max-width: 520px) {
+  body {
+    padding: 18px;
+  }
+
+  main {
+    padding: 25px;
+  }
+
+  .art {
+    width: 85px;
+    height: 85px;
+  }
+
+  .art-two {
+    top: 105px;
+    left: -32px;
+  }
+
+  header::before {
+    right: 85px;
   }
 }
-go.onclick = convert;
-url.addEventListener("keydown", e => e.key === "Enter" && convert());
 
-let prompt;
-addEventListener("beforeinstallprompt", e => { e.preventDefault(); prompt = e; $("install").style.display = "block"; });
-$("install").onclick = () => prompt && prompt.prompt();
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");
-</script>
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<main id="app">
+
+  <div class="art art-one">
+    <img src="/p2.jpeg" alt="">
+  </div>
+
+  <div class="art art-two">
+    <img src="/p1.jpeg" alt="">
+  </div>
+
+  <header>
+    <div class="title">
+      <h1>Grogu<br>MP3</h1>
+      <p class="sub">LOCAL AUDIO DECK</p>
+    </div>
+  </header>
+
+  <label for="url">YouTube link</label>
+
+  <input
+    id="url"
+    type="url"
+    inputmode="url"
+    placeholder="Paste a link"
+    autocomplete="off"
+  >
+
+  <button id="go">Convert</button>
+
+  <p id="status" role="status" aria-live="polite"></p>
+
+  <section id="result" hidden>
+    <span id="filename"></span>
+
+    <audio
+      id="preview"
+      controls
+      preload="metadata"
+    ></audio>
+
+    <a id="download" class="download">Download MP3</a>
+  </section>
+
+  <button id="install" hidden>Install app</button>
+
+</main>
+
+<script src="/app.js"></script>
+
 </body>
 </html>
